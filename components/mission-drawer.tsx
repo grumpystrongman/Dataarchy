@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Bot, CheckCircle2, ChevronRight, Clock3, Database, FileCode2, GitBranch, Lock, Radio, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Archive, Bot, CheckCircle2, ChevronRight, CircleAlert, Clock3, Database, FileCode2, GitBranch, Lock, Radio, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./mission-drawer.module.css";
 
@@ -66,8 +66,13 @@ export default function MissionDrawer() {
 
   useEffect(() => {
     refresh(true);
-    const id = window.setInterval(() => refresh(true), 8000);
-    return () => window.clearInterval(id);
+    const intervalId = window.setInterval(() => refresh(true), 8000);
+    const onMission = () => refresh(true);
+    window.addEventListener("dataarchy:mission-created", onMission);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("dataarchy:mission-created", onMission);
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -97,7 +102,7 @@ export default function MissionDrawer() {
       const response = await fetch(`/api/missions/${encodeURIComponent(mission.id)}/authorize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actor: "Dataarchy operator" }),
+        body: JSON.stringify({ actor: "local operator" }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Authorization failed");
@@ -117,10 +122,10 @@ export default function MissionDrawer() {
     </button>
 
     {open && <div className={styles.overlay} onMouseDown={() => setOpen(false)}>
-      <aside className={styles.drawer} onMouseDown={(event) => event.stopPropagation()}>
+      <aside className={styles.drawer} onMouseDown={(event) => event.stopPropagation()} aria-label="Mission memory console">
         <header className={styles.header}>
           <div><span className={styles.headerIcon}><Archive size={17} /></span><div><small>DATAARCHY // DURABLE OPERATOR MEMORY</small><h2>MISSIONS</h2></div></div>
-          <div className={styles.headerActions}><span className={styles.storage}><Database size={11} />{storage.toUpperCase()}</span><button onClick={() => setOpen(false)}><X size={16} /></button></div>
+          <div className={styles.headerActions}><span className={styles.storage}><Database size={11} />{storage.toUpperCase()}</span><button onClick={() => setOpen(false)} aria-label="Close mission console"><X size={16} /></button></div>
         </header>
 
         <div className={styles.body}>
@@ -146,15 +151,10 @@ export default function MissionDrawer() {
               </div>
 
               <div className={styles.section}><small>OPERATOR INTENT</small><blockquote>{selected.query}</blockquote></div>
-
               {!!selected.tools?.length && <div className={styles.section}><small>TOOL PATH</small><div className={styles.chips}>{selected.tools.map((tool) => <span key={tool}>{tool}</span>)}</div></div>}
-
               {!!selected.trace?.length && <div className={styles.section}><small>EXECUTION TRACE</small><div className={styles.trace}>{selected.trace.map((step, index) => <div key={step}><span>{String(index + 1).padStart(2, "0")}</span><i /><b>{step}</b><CheckCircle2 size={12} /></div>)}</div></div>}
-
               {!!selected.result?.evidence?.length && <div className={styles.section}><small>EVIDENCE</small><div className={styles.evidence}>{selected.result.evidence.map((item: string, index: number) => <div key={`${item}-${index}`}><span>{index + 1}</span><p>{item}</p></div>)}</div></div>}
-
               {selected.result?.artifact && <div className={styles.section}><small>STAGED ARTIFACT</small><pre className={styles.artifact}>{String(selected.result.artifact)}</pre></div>}
-
               <div className={styles.section}><small>AUDIT TRAIL</small><div className={styles.events}>{selected.events.map((event, index) => <div key={`${event.at}-${index}`}><GitBranch size={11} /><span>{formatTime(event.at)}</span><p>{event.detail}</p><b>{event.actor}</b></div>)}</div></div>
 
               {selected.status === "staged" && <div className={styles.authorization}>
