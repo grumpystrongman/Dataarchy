@@ -9,6 +9,7 @@ import {
 } from "@/lib/databricks";
 import { demoAction } from "@/lib/demo";
 import { intentStages } from "@/lib/dataarchy-os";
+import { createMission } from "@/lib/missions";
 
 const validModes = new Set<DatabricksMode>(["ask", "explore", "build", "fix", "watch"]);
 
@@ -52,6 +53,25 @@ function parseModelResult(raw: string, source: string, mode: DatabricksMode, too
   };
 }
 
+async function respond(mode: DatabricksMode, query: string, payload: Record<string, any>) {
+  try {
+    const mission = await createMission(mode, query, payload);
+    return NextResponse.json({
+      ...payload,
+      mission: {
+        id: mission.id,
+        status: mission.status,
+        createdAt: mission.createdAt,
+      },
+    });
+  } catch (error) {
+    return NextResponse.json({
+      ...payload,
+      missionWarning: error instanceof Error ? error.message : "Mission persistence failed",
+    });
+  }
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const mode = String(body.mode || "ask") as DatabricksMode;
@@ -62,7 +82,7 @@ export async function POST(request: NextRequest) {
 
   const status = getDatabricksStatus();
   if (!status.configured) {
-    return NextResponse.json({
+    return respond(mode, query, {
       ...demoAction(mode, query),
       ...executionMeta(mode, ["demo intelligence"]),
     });
@@ -71,7 +91,7 @@ export async function POST(request: NextRequest) {
   try {
     if (mode === "ask" && status.genieConfigured) {
       const genie = await askGenie(query);
-      return NextResponse.json({
+      return respond(mode, query, {
         source: "databricks-genie",
         query,
         genie,
@@ -81,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     if (mode === "explore" && /^[\w-]+\.[\w-]+\.[\w-]+$/.test(query)) {
       const table = await describeTable(query);
-      return NextResponse.json({
+      return respond(mode, query, {
         source: "databricks-unity-catalog",
         query,
         table,
@@ -97,11 +117,11 @@ export async function POST(request: NextRequest) {
           operatorPrompt,
           `Mode: FIX\nUser intent: ${query}\nFailed Databricks runs:\n${JSON.stringify(failed, null, 2)}`
         );
-        return NextResponse.json(
+        return respond(mode, query,
           parseModelResult(raw, "databricks-jobs+model-serving", mode, ["Jobs API 2.2", "Model Serving", "Guardian"])
         );
       }
-      return NextResponse.json({
+      return respond(mode, query, {
         source: "databricks-jobs",
         query,
         failedRuns: failed,
@@ -114,18 +134,18 @@ export async function POST(request: NextRequest) {
         operatorPrompt,
         `Mode: ${mode.toUpperCase()}\nUser intent: ${query}\nDatabricks is connected. Produce a reviewable, organization-friendly response. Do not perform hidden production mutations.`
       );
-      return NextResponse.json(
+      return respond(mode, query,
         parseModelResult(raw, "databricks-model-serving", mode, ["Model Serving", "Unity Catalog context", "Guardian"])
       );
     }
 
-    return NextResponse.json({
+    return respond(mode, query, {
       ...demoAction(mode, query),
       source: "databricks-context+planner",
       ...executionMeta(mode, ["Databricks context", "Dataarchy planner"]),
     });
   } catch (error) {
-    return NextResponse.json({
+    return respond(mode, query, {
       ...demoAction(mode, query),
       source: "demo-fallback",
       warning: error instanceof Error ? error.message : "Databricks action failed",
