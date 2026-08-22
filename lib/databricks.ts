@@ -1,4 +1,6 @@
 export type DatabricksMode = "ask" | "explore" | "build" | "fix" | "watch";
+export type DatabricksAuthMode = "pat" | "oauth-m2m" | "none";
+export type DatabricksRuntime = "databricks-app" | "external";
 
 export type DatabricksStatus = {
   configured: boolean;
@@ -6,32 +8,84 @@ export type DatabricksStatus = {
   warehouseConfigured: boolean;
   genieConfigured: boolean;
   modelConfigured: boolean;
+  authMode: DatabricksAuthMode;
+  runtime: DatabricksRuntime;
 };
 
 const host = (process.env.DATABRICKS_HOST || "").replace(/\/$/, "");
 const token = process.env.DATABRICKS_TOKEN || "";
+const clientId = process.env.DATABRICKS_CLIENT_ID || "";
+const clientSecret = process.env.DATABRICKS_CLIENT_SECRET || "";
 const warehouseId = process.env.DATABRICKS_WAREHOUSE_ID || "";
 const genieSpaceId = process.env.DATABRICKS_GENIE_SPACE_ID || "";
 const modelEndpoint = process.env.DATABRICKS_MODEL_ENDPOINT || "";
 const catalog = process.env.DATABRICKS_CATALOG || "main";
 const schema = process.env.DATABRICKS_SCHEMA || "default";
 
+let oauthCache: { accessToken: string; expiresAt: number } | null = null;
+
+function authMode(): DatabricksAuthMode {
+  if (token) return "pat";
+  if (clientId && clientSecret) return "oauth-m2m";
+  return "none";
+}
+
 export function getDatabricksStatus(): DatabricksStatus {
+  const mode = authMode();
   return {
-    configured: Boolean(host && token),
+    configured: Boolean(host && mode !== "none"),
     host: host || undefined,
     warehouseConfigured: Boolean(warehouseId),
     genieConfigured: Boolean(genieSpaceId),
     modelConfigured: Boolean(modelEndpoint),
+    authMode: mode,
+    runtime: process.env.DATABRICKS_APP_NAME ? "databricks-app" : "external",
   };
 }
 
+async function getAccessToken(): Promise<string> {
+  if (token) return token;
+  if (!host || !clientId || !clientSecret) {
+    throw new Error("Databricks authentication is not configured. Use a PAT locally or OAuth M2M credentials / Databricks Apps runtime identity.");
+  }
+
+  const now = Date.now();
+  if (oauthCache && oauthCache.expiresAt > now + 30_000) return oauthCache.accessToken;
+
+  const response = await fetch(`${host}/oidc/v1/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: "all-apis",
+    }).toString(),
+    cache: "no-store",
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body?.access_token) {
+    const message = body?.error_description || body?.error || `${response.status} ${response.statusText}`;
+    throw new Error(`Databricks OAuth: ${message}`);
+  }
+
+  const expiresIn = Number(body.expires_in || 3600);
+  oauthCache = {
+    accessToken: String(body.access_token),
+    expiresAt: now + Math.max(expiresIn - 120, 60) * 1000,
+  };
+  return oauthCache.accessToken;
+}
+
 async function dbx<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!host || !token) throw new Error("Databricks credentials are not configured.");
+  if (!host) throw new Error("DATABRICKS_HOST is not configured.");
+  const accessToken = await getAccessToken();
   const response = await fetch(`${host}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
@@ -90,8 +144,7 @@ export async function askGenie(content: string) {
   let latest = started?.message || started;
   const terminal = new Set(["COMPLETED", "FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"]);
 
-  // Keep the interactive request bounded. The UI can still surface the last progressive
-  // Genie payload if a warehouse-backed answer takes longer than this first response window.
+  // Keep the request bounded while still returning useful progressive Genie state.
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const status = String(latest?.status || "").toUpperCase();
     if (terminal.has(status)) break;
