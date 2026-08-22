@@ -45,5 +45,4 @@ targets:
   dev:
     mode: development
     default: true
-  prod:
-    mode: production
+  prod: {}
