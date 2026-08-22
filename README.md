@@ -2,20 +2,114 @@
 
 **Intent in. Analytics out. Databricks underneath.**
 
-Dataarchy is an opinionated, AI-native analytics operating environment inspired by Omarchy's approach to Linux: excellent primitives, strong defaults, keyboard-first workflows, beautiful system-level coherence, and a clear escape hatch to the machinery underneath.
+Dataarchy is an opinionated, AI-native analytics operating environment inspired by Omarchy's approach to Linux: strong defaults, keyboard-first workflows, composable power, a coherent visual system, and a clean escape hatch to the machinery underneath.
 
-This is not a dashboard mockup. The repository contains a runnable Next.js application with:
+The goal is not to make Databricks look simpler. The goal is to make an analytics organization feel like it has a powerful AI operating system.
 
-- Four tiled analytics workspaces: **Operate, Investigate, Build, Govern**
-- A global `Super/Cmd/Ctrl + Space` launcher
-- `Super/Cmd/Ctrl + 1..4` workspace switching and `Super/Cmd/Ctrl + K` keybinding help
-- ASK / EXPLORE / BUILD / FIX / WATCH intent modes
-- A Databricks adapter for Genie, Unity Catalog, Jobs API 2.2, SQL Statement Execution, and Model Serving
-- A rich demo mode that boots without credentials
-- Review-first production mutation philosophy for generated build/watch actions
-- Theme switching from the global launcher
-- Responsive desktop/mobile layouts
-- A governed SQL escape hatch that blocks mutating statements by default
+## What it feels like
+
+Dataarchy is designed as a cinematic command environment rather than another enterprise dashboard. The visual system uses dark glass, fine HUD geometry, restrained emissive color, spatially tiled instruments, active-system motion, and an AI core whose visual state reflects what the operator is actually asking the system to do.
+
+The interface is intentionally theatrical in small doses: a short boot sequence, workspace acquisition motion, live topology, radar-style observation, and tool-path activity. Every effect has a job: communicate state, focus, risk, activity, or hierarchy.
+
+## Five operating workspaces
+
+### 1 // COMMAND
+
+The home cockpit. It combines the Operator Intelligence core, enterprise signals, governed intelligence topology, and recommended actions. This is where an operator sees what changed and issues intent.
+
+### 2 // INVESTIGATE
+
+Natural-language ASK / EXPLORE / BUILD / FIX / WATCH workflows with evidence, risk, tool path, and an explicit operator trace. Dataarchy routes the intent to the right Databricks capabilities rather than asking the user to choose products first.
+
+### 3 // FORGE
+
+Recipe-driven intent-to-artifact work. Dataarchy stages pipelines, quality contracts, deployment configurations, Genie domains, watches, repairs, and other generated work behind an explicit production gate.
+
+### 4 // OBSERVE
+
+Intelligent watches, job execution health, repair queue, and system telemetry. The design goal is to watch for meaning rather than simply producing alerts.
+
+### 5 // ARSENAL
+
+Capability packages, enterprise defaults, specialist agent roster, governed assets, and policy. Packages can encode domain semantics, recipes, quality expectations, agents, and organization-specific defaults.
+
+## Keyboard model
+
+- `Cmd/Ctrl + Space` — neural command surface
+- `Cmd/Ctrl + 1..5` — acquire workspace
+- `Cmd/Ctrl + Enter` — execute current intent
+- `Cmd/Ctrl + F` — focus mode; collapse secondary instruments
+- `Cmd/Ctrl + K` — operator keybindings
+- `Esc` — collapse transient UI / exit focus
+
+The launcher accepts both commands and natural language. If nothing matches, the text is routed as intent.
+
+## AI operating states
+
+The visible Operator Intelligence core reflects the system's current behavior:
+
+- `OBSERVING`
+- `INVESTIGATING`
+- `BUILDING`
+- `VERIFYING`
+- `WATCHING`
+- `READY`
+
+The shell also displays the actual tool chain returned by the backend, such as Genie, Unity Catalog, Jobs API, Model Serving, or the Dataarchy Guardian.
+
+## Databricks integration
+
+When configured, Dataarchy currently uses:
+
+- Genie Agents / Conversation API for governed natural-language analytics
+- Unity Catalog for governed asset discovery and inspection
+- Jobs API 2.2 for execution health and failure context
+- SQL Statement Execution for the governed SQL escape hatch
+- Databricks Model Serving for operator planning and staged BUILD / FIX / WATCH work
+
+Genie requests use a bounded polling flow so Dataarchy can render the progressively completed governed message rather than only the initial conversation-start payload.
+
+## Safety and production mutation
+
+Dataarchy is powerful by design, but production mutation is explicit.
+
+Every action response includes:
+
+- tool path
+- operator trace
+- execution mode
+- risk level
+- whether approval is required
+- whether a production mutation occurred
+
+BUILD, FIX, and WATCH work is staged by default. Generated artifacts can be inspected and validated before a future deployment adapter is authorized to apply them.
+
+The default principle is:
+
+> Never ask the user to make a Databricks decision that the system can safely make for them. Never hide a production decision the user should make.
+
+## Packages and recipes
+
+The first built-in package catalog includes:
+
+- `dataarchy-core`
+- `healthcare-core`
+- `epic-analytics`
+- `omop-cdm`
+- `fhir-interoperability`
+- `databricks-finops`
+
+The first recipe catalog includes:
+
+- New Data Source
+- Root Cause Investigation
+- Pipeline Repair
+- Intelligent Watch
+- Genie Domain
+- Data Trust Audit
+
+The package state is persisted in the browser for the current prototype. The package model is intentionally shaped so it can evolve into a signed enterprise registry.
 
 ## Run it
 
@@ -25,79 +119,49 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open `http://localhost:3000`.
 
-If no Databricks environment variables are present, Dataarchy starts in demo mode so the entire shell can be explored immediately.
+Without Databricks credentials, Dataarchy boots into a rich simulation mode so the full operator environment remains explorable.
 
 ## Connect Databricks
-
-Set these in `.env.local`:
 
 ```bash
 DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
 DATABRICKS_TOKEN=...
 DATABRICKS_WAREHOUSE_ID=...
 DATABRICKS_GENIE_SPACE_ID=...
-DATABRICKS_MODEL_ENDPOINT=databricks-gpt-5
+DATABRICKS_MODEL_ENDPOINT=...
 DATABRICKS_CATALOG=main
 DATABRICKS_SCHEMA=default
+
+# Keep false unless you deliberately wire an explicit mutation flow.
 DATAARCHY_ALLOW_SQL_MUTATIONS=false
 ```
-
-The current adapter uses:
-
-- `POST /api/2.0/genie/spaces/{space_id}/start-conversation`
-- `GET /api/2.1/unity-catalog/catalogs`
-- `GET /api/2.1/unity-catalog/tables/{full_name}`
-- `GET /api/2.2/jobs/runs/list`
-- `POST /api/2.0/sql/statements`
-- `POST /serving-endpoints/{name}/invocations`
-
-ASK prefers Genie when a Genie space is configured. BUILD/FIX/WATCH can use the configured Databricks Model Serving endpoint as Dataarchy's governed planning brain. EXPLORE resolves exact three-part table names through Unity Catalog. The shell falls back gracefully when optional capabilities are not configured.
-
-## Product philosophy
-
-Dataarchy exposes **verbs, not Databricks products**.
-
-| Intent | What the user means |
-| --- | --- |
-| ASK | Investigate a business question |
-| EXPLORE | Understand an asset, lineage, quality, or usage |
-| BUILD | Turn intent into a production-ready data product |
-| FIX | Diagnose and repair broken analytics |
-| WATCH | Monitor a metric, pipeline, model, or data condition |
-
-The rule is simple: **never ask the user to make a Databricks decision that the system can safely make for them.** Advanced users can inspect generated artifacts and drop into native Databricks whenever they want.
 
 ## Architecture
 
 ```text
-Dataarchy Shell
-  ├─ keyboard launcher + tiled workspaces + themes
-  ├─ intent router (ASK / EXPLORE / BUILD / FIX / WATCH)
-  ├─ agent-facing API routes
-  └─ review / governance boundary
-          │
-          ▼
-Databricks Adapter
-  ├─ Genie
-  ├─ Unity Catalog
-  ├─ Jobs 2.2
-  ├─ Model Serving / Foundation Models
-  └─ SQL Statement Execution
-          │
-          ▼
-Databricks workspace + governed enterprise data
+┌──────────────────────────────────────────────────────────────┐
+│                     DATAARCHY SHELL                          │
+│ boot • command surface • workspaces • focus • themes         │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ intent
+┌────────────────────────────▼─────────────────────────────────┐
+│                    OPERATOR RUNTIME                          │
+│ SCOUT • ANALYST • ENGINEER • GUARDIAN • OPERATOR             │
+│ tool path • risk • trace • review gate                       │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+┌────────────────────────────▼─────────────────────────────────┐
+│                    DATABRICKS PLANE                          │
+│ Genie • Unity Catalog • Jobs • SQL • Model Serving           │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+┌────────────────────────────▼─────────────────────────────────┐
+│                GOVERNED ENTERPRISE DATA                      │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## Governed SQL escape hatch
+## Product direction
 
-`POST /api/sql` accepts `{ "statement": "SELECT ..." }` and executes through the configured SQL warehouse. Mutating SQL (`INSERT`, `UPDATE`, `DELETE`, `MERGE`, DDL, grants, maintenance commands, and similar operations) is denied unless `DATAARCHY_ALLOW_SQL_MUTATIONS=true` is explicitly configured.
-
-## What comes next
-
-The shell is deliberately structured so the next increments can add persistent workspaces, Databricks OAuth/service-principal auth, streaming Genie message rendering, artifact promotion, Lakeflow pipeline generation, agent audit history, metric views, native notifications, organization profiles, recipes/packages, and a real Dataarchy package registry without rewriting the desktop experience.
-
-## Safety stance
-
-Dataarchy is designed to be powerful without being reckless. Read and investigation actions can run directly when configured. BUILD and WATCH currently generate auditable plans rather than silently creating or mutating production resources. The promotion boundary should remain explicit even as deeper automation is added.
+The next deep product layer is a promotion engine and persistent mission model: investigations and builds should become durable workspace objects with evidence, artifacts, history, collaborators, watches, approvals, and deploy/verify state. That is the path from a cinematic AI interface to a true analytics operating system.
