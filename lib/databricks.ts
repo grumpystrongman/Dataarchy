@@ -5,12 +5,14 @@ export type DatabricksStatus = {
   host?: string;
   warehouseConfigured: boolean;
   genieConfigured: boolean;
+  modelConfigured: boolean;
 };
 
 const host = (process.env.DATABRICKS_HOST || "").replace(/\/$/, "");
 const token = process.env.DATABRICKS_TOKEN || "";
 const warehouseId = process.env.DATABRICKS_WAREHOUSE_ID || "";
 const genieSpaceId = process.env.DATABRICKS_GENIE_SPACE_ID || "";
+const modelEndpoint = process.env.DATABRICKS_MODEL_ENDPOINT || "";
 const catalog = process.env.DATABRICKS_CATALOG || "main";
 const schema = process.env.DATABRICKS_SCHEMA || "default";
 
@@ -20,6 +22,7 @@ export function getDatabricksStatus(): DatabricksStatus {
     host: host || undefined,
     warehouseConfigured: Boolean(warehouseId),
     genieConfigured: Boolean(genieSpaceId),
+    modelConfigured: Boolean(modelEndpoint),
   };
 }
 
@@ -77,6 +80,22 @@ export async function askGenie(content: string) {
     method: "POST",
     body: JSON.stringify({ content, enable_visualization: true }),
   });
+}
+
+export async function invokeModel(system: string, user: string) {
+  if (!modelEndpoint) throw new Error("DATABRICKS_MODEL_ENDPOINT is required for model planning.");
+  const payload = await dbx<any>(`/serving-endpoints/${encodeURIComponent(modelEndpoint)}/invocations`, {
+    method: "POST",
+    body: JSON.stringify({
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.2,
+      max_tokens: 1600,
+    }),
+  });
+  return payload?.choices?.[0]?.message?.content || payload?.output_text || payload?.content || JSON.stringify(payload);
 }
 
 export async function describeTable(fullName: string) {
