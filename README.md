@@ -2,17 +2,121 @@
 
 **Intent in. Analytics out. Databricks underneath.**
 
-Dataarchy is an opinionated, AI-native analytics operating environment for Databricks. It takes inspiration from Omarchy's approach to Linux: strong defaults, keyboard-first workflows, composable power, a coherent visual system, and a clean escape hatch to the machinery underneath.
+Dataarchy is an opinionated, AI-native analytics operating environment for Databricks. It combines a cinematic operator shell with Genie, Unity Catalog, SQL Warehouses, Model Serving, Databricks Jobs, governed Mission Memory, and Databricks Apps.
 
-The goal is not to make Databricks look simpler. The goal is to make an analytics organization feel like it has a powerful AI operating system.
+**Current baseline: v0.5.0 — Git-native, no-secret Databricks install**
 
-**Current baseline: v0.4.0**
+## Fastest way to run Dataarchy in Databricks
 
-## What it feels like
+You do **not** need to clone this repo locally, paste a Databricks token into code, create a GitHub PAT, or type a password into Dataarchy.
 
-Dataarchy is designed as a cinematic command environment rather than another enterprise dashboard. The visual system uses dark glass, fine HUD geometry, restrained emissive color, spatially tiled instruments, active-system motion, and an AI core whose visual state reflects what the operator is actually asking the system to do.
+Dataarchy is designed to be deployed directly from this public GitHub repository as a **Databricks App**:
 
-The interface is theatrical in small doses: a short boot sequence, workspace acquisition motion, live topology, radar-style observation, tool-path activity, and a persistent Mission Memory console. Effects communicate state, focus, risk, activity, or hierarchy rather than existing as decoration.
+```text
+GitHub: grumpystrongman/Dataarchy
+           │
+           │ Databricks pulls main directly
+           ▼
+     Databricks App
+           │
+           ├─ Genie Agent
+           ├─ SQL Warehouse
+           ├─ Model Serving endpoint
+           └─ Unity Catalog state volume
+```
+
+Databricks Apps gives the running app its own managed service-principal identity. App resources handle resource IDs, permissions, and credentials so Dataarchy does not need hard-coded Databricks tokens.
+
+### 1. Create the app
+
+In your Databricks workspace:
+
+1. Open **Databricks Apps**.
+2. Click **Create app** → **Create a custom app**.
+3. In **Configure Git**, use:
+
+   - Provider: **GitHub**
+   - Repository: `https://github.com/grumpystrongman/Dataarchy`
+   - Reference type: **Branch**
+   - Branch: `main`
+   - Source code path: leave blank / repository root
+
+This repository is public, so Databricks does **not** require a Git credential or GitHub personal access token to read it.
+
+### 2. Add the four Dataarchy resources
+
+In **App resources**, add these existing Databricks resources using these exact resource keys:
+
+| Resource | Resource key | Permission | Purpose |
+| --- | --- | --- | --- |
+| SQL Warehouse | `sql-warehouse` | `CAN_USE` | SQL execution and governed analytics |
+| Genie Agent | `genie-space` | `CAN_RUN` | Natural-language analytics |
+| Model Serving endpoint | `serving-endpoint` | `CAN_QUERY` | Dataarchy planning/reasoning |
+| Unity Catalog Volume | `state-volume` | `WRITE_VOLUME` | Durable Mission Memory and audit state |
+
+Use a volume dedicated to Dataarchy, for example:
+
+```text
+main.dataarchy.state
+```
+
+The Genie Agent should already be configured with the business data, instructions, sample questions, and semantic context you want Dataarchy to reason over.
+
+If you want Dataarchy's direct Unity Catalog Explore tools to inspect additional catalogs/schemas/tables, grant the Dataarchy app service principal the corresponding Unity Catalog permissions as well. Do not solve that by adding tokens to the application.
+
+### 3. Deploy from Git
+
+On the app overview page:
+
+1. Click **Deploy**.
+2. Choose **From Git**.
+3. Select branch `main`.
+4. Leave source path blank.
+5. Click **Deploy**.
+
+Databricks pulls the current code from GitHub, installs the Node dependencies, runs the Next.js build, resolves the app resources in `app.yaml`, and starts Dataarchy.
+
+When deployment completes, open the app URL. Dataarchy should report a Databricks-connected runtime rather than DEMO mode.
+
+### 4. Test it
+
+Start with:
+
+```text
+ASK      Why did this metric change?
+EXPLORE  catalog.schema.table
+FIX      Why did the latest pipeline fail?
+BUILD    Build a governed data product for ...
+WATCH    Watch this metric and explain meaningful anomalies
+```
+
+Open **Mission Memory** with `Cmd/Ctrl + Shift + M` to verify that missions are being persisted to the bound Unity Catalog volume.
+
+## What you should not have to configure
+
+For the Databricks Apps deployment path, Dataarchy should not require:
+
+- a GitHub PAT for this public repository
+- a Databricks PAT
+- a username/password embedded in code
+- a manually copied OAuth token
+- a hard-coded warehouse ID, Genie ID, model endpoint, or volume path in source code
+
+Those concerns are handled by Databricks Git deployment, the app's managed service principal, and Databricks App resources.
+
+Local development is different: `.env.example` still supports PAT or OAuth M2M credentials for developers running Dataarchy outside Databricks Apps.
+
+## Why Genie does not deploy the application
+
+Genie is part of the intelligence plane, not the application deployment plane. The intended relationship is:
+
+```text
+Databricks Apps  → pulls/runs Dataarchy from GitHub
+Dataarchy        → orchestrates operator intent
+Genie Agent      → answers governed business/data questions
+```
+
+That separation keeps deployment, authentication, analytics, and governance in the parts of Databricks designed to own them.
 
 ## Five operating workspaces
 
@@ -20,133 +124,68 @@ The interface is theatrical in small doses: a short boot sequence, workspace acq
 The home cockpit: Operator Intelligence, enterprise signals, governed intelligence topology, and recommended actions.
 
 ### 2 // INVESTIGATE
-Natural-language ASK / EXPLORE / BUILD / FIX / WATCH workflows with evidence, risk, tool path, and an explicit operator trace. Dataarchy routes intent to the appropriate Databricks capabilities rather than asking the operator to choose products first.
+Natural-language ASK / EXPLORE / BUILD / FIX / WATCH workflows with evidence, risk, tool path, and an explicit operator trace.
 
 ### 3 // FORGE
-Recipe-driven intent-to-artifact work. Dataarchy stages pipelines, quality contracts, deployment configurations, Genie domains, watches, repairs, and other generated work behind an explicit production gate.
+Recipe-driven intent-to-artifact work. Dataarchy stages pipelines, quality contracts, deployment configurations, Genie domains, watches, and repairs behind an explicit production gate.
 
 ### 4 // OBSERVE
-Intelligent watches, job execution health, repair queue, and system telemetry. The objective is to watch for meaning rather than merely produce alerts.
+Intelligent watches, job execution health, repair queue, and system telemetry.
 
 ### 5 // ARSENAL
-Capability packages, enterprise defaults, specialist agent roster, governed assets, and policy. Packages can encode domain semantics, recipes, quality expectations, agents, and organization-specific defaults.
+Capability packages, enterprise defaults, specialist agents, governed assets, and policy.
 
 ## Mission Memory
 
-Every ASK, EXPLORE, BUILD, FIX, and WATCH action can become a durable **Mission**. A mission preserves the original operator intent plus the result snapshot, source, tool path, execution trace, risk metadata, timestamps, artifacts/evidence, current state, and audit events.
+Every ASK, EXPLORE, BUILD, FIX, and WATCH action can become a durable Mission containing operator intent, result snapshot, tool path, trace, risk metadata, evidence/artifacts, timestamps, state, and audit events.
 
-Mission states currently include:
+Mission states include `complete`, `staged`, `authorized`, and `failed`.
 
-- `complete` — read-only/direct work finished
-- `staged` — BUILD/FIX/WATCH work is waiting for an operator gate
-- `authorized` — an operator explicitly approved the staged mission
-- `failed` — reserved for failed mission outcomes
-
-Use `Cmd/Ctrl + Shift + M` to open the cinematic Mission Memory console. Operators can reopen work, inspect evidence and artifacts, review the audit trail, and authorize staged missions.
-
-Inside Databricks Apps, Mission Memory is persisted as one JSON document per mission in a governed Unity Catalog volume:
+Inside Databricks Apps, missions are persisted under the bound `state-volume` resource:
 
 ```text
 /Volumes/<catalog>/<schema>/<volume>/dataarchy/missions/<mission-uuid>.json
 ```
 
-Authorization is attributed from Databricks forwarded user identity headers when available. **Authorization records approval; it does not silently mutate production.**
-
-## Keyboard model
-
-- `Cmd/Ctrl + Space` — neural command surface
-- `Cmd/Ctrl + 1..5` — acquire workspace
-- `Cmd/Ctrl + Enter` — execute current intent
-- `Cmd/Ctrl + F` — focus mode
-- `Cmd/Ctrl + K` — operator keybindings
-- `Cmd/Ctrl + Shift + M` — Mission Memory
-- `Esc` — collapse transient UI / exit focus
-
-The launcher accepts commands and natural language. If nothing matches, the text is routed as intent.
-
-## AI operating states
-
-The visible Operator Intelligence core reflects the system's current behavior:
-
-- `OBSERVING`
-- `INVESTIGATING`
-- `BUILDING`
-- `VERIFYING`
-- `WATCHING`
-- `READY`
-
-The shell also exposes the actual tool chain returned by the backend, such as Genie, Unity Catalog, Jobs API, Model Serving, or the Dataarchy Guardian.
-
-## Databricks integration
-
-When configured, Dataarchy uses:
-
-- Genie Agents / Conversation API for governed natural-language analytics
-- Unity Catalog for governed asset discovery, policy boundaries, and Mission Memory storage
-- Jobs API 2.2 for execution health and failure context
-- SQL Statement Execution for the governed SQL escape hatch
-- Databricks Model Serving for operator planning and staged BUILD / FIX / WATCH work
-- Databricks Apps for the native application runtime
-
-Genie requests use a bounded polling flow so Dataarchy can render a progressively completed governed message rather than only the conversation-start payload.
+Authorization records an operator approval event. It does **not** silently mutate production.
 
 ## Databricks-native runtime
 
-The repository includes `app.yaml` and `databricks.yml` for first-class Databricks Apps deployment.
+The repository contains:
 
-In Databricks Apps, the runtime injects the workspace host plus the app service principal's OAuth client credentials. Dataarchy uses OAuth M2M and caches workspace access tokens before expiry, so a personal access token is not required in the deployed app.
+- `app.yaml` — runtime command and resource-to-environment mapping
+- `databricks.yml` — Databricks bundle definition, GitHub source, and governed resources
+- `.github/workflows/deploy-databricks.yml` — optional GitHub OIDC deployment pipeline
+- `DEPLOYMENT.md` — detailed deployment and troubleshooting runbook
 
-The bundle binds least-privilege resources:
+`databricks.yml` points the Databricks App directly at:
 
-- `sql-warehouse` → SQL warehouse with `CAN_USE`
-- `genie-space` → Genie Agent with `CAN_RUN`
-- `serving-endpoint` → Model Serving endpoint with `CAN_QUERY`
-- `state-volume` → Unity Catalog volume with `WRITE_VOLUME`
+```text
+https://github.com/grumpystrongman/Dataarchy
+branch: main
+```
 
-`app.yaml` resolves those resources into runtime environment variables, including `DATAARCHY_STATE_VOLUME` for governed durable Mission Memory.
+The bundle binds:
 
-## Safety and production mutation
+- `sql-warehouse` → `CAN_USE`
+- `genie-space` → `CAN_RUN`
+- `serving-endpoint` → `CAN_QUERY`
+- `state-volume` → `WRITE_VOLUME`
 
-Dataarchy is powerful by design, but production mutation remains explicit.
+`app.yaml` resolves those keys into Dataarchy runtime configuration.
 
-Every operator result exposes:
+## Updating Dataarchy
 
-- tool path
-- operator trace
-- execution mode
-- risk level
-- whether approval is required
-- whether a production mutation occurred
+Because this repository is public, redeployment from Git does not require a GitHub credential:
 
-BUILD, FIX, and WATCH work is staged by default. Mission authorization records the operator decision without pretending that deployment occurred. `DATAARCHY_ALLOW_SQL_MUTATIONS=false` remains the default.
+1. Open the Dataarchy app in Databricks.
+2. Click **Deploy**.
+3. Choose **From Git** and branch `main`.
+4. Deploy the newest commit.
 
-The operating principle is:
+Databricks also supports automatic Git deployments, but its current GitHub auto-deployment beta requires a private repository. For controlled production automation, use the included GitHub OIDC workflow instead.
 
-> Never ask the user to make a Databricks decision that the system can safely make for them. Never hide a production decision the user should make.
-
-## Packages and recipes
-
-Built-in package catalog:
-
-- `dataarchy-core`
-- `healthcare-core`
-- `epic-analytics`
-- `omop-cdm`
-- `fhir-interoperability`
-- `databricks-finops`
-
-Built-in recipes:
-
-- New Data Source
-- Root Cause Investigation
-- Pipeline Repair
-- Intelligent Watch
-- Genie Domain
-- Data Trust Audit
-
-Package enablement is currently persisted in the browser. The package model is shaped to evolve into a signed enterprise registry.
-
-## Run locally
+## Local development
 
 ```bash
 npm install
@@ -154,88 +193,16 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Without Databricks credentials, Dataarchy boots in simulation mode. Without `DATAARCHY_STATE_VOLUME`, Mission Memory uses in-process storage.
 
-Without Databricks credentials, Dataarchy boots into a rich simulation mode. Without `DATAARCHY_STATE_VOLUME`, Mission Memory falls back to in-process storage for local/demo use.
+## Safety
 
-### Local PAT
+Dataarchy is designed to choose safe Databricks machinery for the operator while keeping production decisions visible.
 
-```bash
-DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-DATABRICKS_TOKEN=...
-DATABRICKS_WAREHOUSE_ID=...
-DATABRICKS_GENIE_SPACE_ID=...
-DATABRICKS_MODEL_ENDPOINT=...
-DATAARCHY_STATE_VOLUME=/Volumes/main/dataarchy/state
-DATABRICKS_CATALOG=main
-DATABRICKS_SCHEMA=default
-DATAARCHY_ALLOW_SQL_MUTATIONS=false
-```
+BUILD, FIX, and WATCH work is staged by default. `DATAARCHY_ALLOW_SQL_MUTATIONS=false` remains the default.
 
-### Local OAuth M2M
+> Never ask the user to make a Databricks decision the system can safely make for them. Never hide a production decision the user should make.
 
-```bash
-DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-DATABRICKS_CLIENT_ID=...
-DATABRICKS_CLIENT_SECRET=...
-DATABRICKS_WAREHOUSE_ID=...
-DATABRICKS_GENIE_SPACE_ID=...
-DATABRICKS_MODEL_ENDPOINT=...
-DATAARCHY_STATE_VOLUME=/Volumes/main/dataarchy/state
-```
+## Detailed deployment
 
-## Deploy
-
-See **`DEPLOYMENT.md`** for the production runbook.
-
-The repository includes a manual, environment-gated GitHub Actions workflow at `.github/workflows/deploy-databricks.yml`. It uses GitHub OIDC rather than a stored Databricks client secret, validates the bundle, deploys it, starts/restarts the Databricks App, and performs an authenticated `/api/system` smoke test.
-
-Manual CLI flow:
-
-```bash
-export DATABRICKS_BUNDLE_VAR_warehouse_id="<warehouse-id>"
-export DATABRICKS_BUNDLE_VAR_genie_space_id="<genie-space-id>"
-export DATABRICKS_BUNDLE_VAR_model_endpoint_name="<endpoint-name>"
-export DATABRICKS_BUNDLE_VAR_state_volume_full_name="main.dataarchy.state"
-
-databricks bundle validate --target prod
-databricks bundle deploy --target prod
-databricks bundle run dataarchy --target prod
-```
-
-## Architecture
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                     DATAARCHY SHELL                          │
-│ boot • command • workspaces • focus • Mission Memory         │
-└────────────────────────────┬─────────────────────────────────┘
-                             │ intent
-┌────────────────────────────▼─────────────────────────────────┐
-│                    OPERATOR RUNTIME                          │
-│ SCOUT • ANALYST • ENGINEER • GUARDIAN • OPERATOR             │
-│ tool path • risk • trace • review gate                       │
-└────────────────────────────┬─────────────────────────────────┘
-                             │ mission
-┌────────────────────────────▼─────────────────────────────────┐
-│                    MISSION MEMORY                            │
-│ intent • evidence • artifacts • audit • authorization        │
-│ governed Unity Catalog volume                               │
-└────────────────────────────┬─────────────────────────────────┘
-                             │
-┌────────────────────────────▼─────────────────────────────────┐
-│                    DATABRICKS PLANE                          │
-│ Genie • Unity Catalog • Jobs • SQL • Model Serving • Apps    │
-│ app service principal • OAuth M2M • resource bindings        │
-└────────────────────────────┬─────────────────────────────────┘
-                             │
-┌────────────────────────────▼─────────────────────────────────┐
-│                GOVERNED ENTERPRISE DATA                      │
-└──────────────────────────────────────────────────────────────┘
-```
-
-## Current product frontier
-
-Persistent missions are now part of the product baseline. The next frontier is the **promotion engine**: resource-specific adapters that can take an authorized Mission, compute an impact/diff, execute a narrowly scoped Databricks change, verify the outcome, and move the mission through deploy/verify/watch states without hiding production decisions.
-
-That layer should remain explicit, testable, reversible where possible, and governed by the same evidence and audit model as the rest of Dataarchy.
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for UI deployment, Declarative Automation Bundle deployment, GitHub OIDC CI/CD, permissions, Mission Memory storage, verification, and troubleshooting.
