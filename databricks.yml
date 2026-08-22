@@ -16,7 +16,11 @@ resources:
     dataarchy:
       name: dataarchy
       description: AI analytics operating system
-      source_code_path: .
+      git_repository:
+        provider: gitHub
+        url: https://github.com/grumpystrongman/Dataarchy
+      git_source:
+        branch: main
       resources:
         - name: sql-warehouse
           sql_warehouse:
