@@ -46,6 +46,8 @@ async function dbx<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function listCatalogs() {
   return dbx<{ catalogs?: Array<{ name: string; catalog_type?: string; owner?: string; comment?: string }> }>(
     "/api/2.1/unity-catalog/catalogs?max_results=50"
@@ -76,10 +78,34 @@ export async function executeSql(statement: string) {
 
 export async function askGenie(content: string) {
   if (!genieSpaceId) throw new Error("DATABRICKS_GENIE_SPACE_ID is required for Genie.");
-  return dbx<any>(`/api/2.0/genie/spaces/${genieSpaceId}/start-conversation`, {
+  const started = await dbx<any>(`/api/2.0/genie/spaces/${genieSpaceId}/start-conversation`, {
     method: "POST",
     body: JSON.stringify({ content, enable_visualization: true }),
   });
+
+  const conversationId = started?.conversation?.id || started?.message?.conversation_id;
+  const messageId = started?.message?.id || started?.message?.message_id;
+  if (!conversationId || !messageId) return started;
+
+  let latest = started?.message || started;
+  const terminal = new Set(["COMPLETED", "FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"]);
+
+  // Keep the interactive request bounded. The UI can still surface the last progressive
+  // Genie payload if a warehouse-backed answer takes longer than this first response window.
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const status = String(latest?.status || "").toUpperCase();
+    if (terminal.has(status)) break;
+    await sleep(Math.min(900 + attempt * 250, 2200));
+    latest = await dbx<any>(
+      `/api/2.0/genie/spaces/${genieSpaceId}/conversations/${conversationId}/messages/${messageId}`
+    );
+  }
+
+  return {
+    conversation: started?.conversation,
+    message: latest,
+    progressive: !terminal.has(String(latest?.status || "").toUpperCase()),
+  };
 }
 
 export async function invokeModel(system: string, user: string) {
