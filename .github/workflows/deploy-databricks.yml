@@ -25,10 +25,10 @@ jobs:
       DATABRICKS_AUTH_TYPE: github-oidc
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
-      DATABRICKS_BUNDLE_VAR_warehouse_id: ${{ vars.DATAARCHY_WAREHOUSE_ID }}
-      DATABRICKS_BUNDLE_VAR_genie_space_id: ${{ vars.DATAARCHY_GENIE_SPACE_ID }}
-      DATABRICKS_BUNDLE_VAR_model_endpoint_name: ${{ vars.DATAARCHY_MODEL_ENDPOINT_NAME }}
-      DATABRICKS_BUNDLE_VAR_state_volume_full_name: ${{ vars.DATAARCHY_STATE_VOLUME_FULL_NAME }}
+      BUNDLE_VAR_warehouse_id: ${{ vars.DATAARCHY_WAREHOUSE_ID }}
+      BUNDLE_VAR_genie_space_id: ${{ vars.DATAARCHY_GENIE_SPACE_ID }}
+      BUNDLE_VAR_model_endpoint_name: ${{ vars.DATAARCHY_MODEL_ENDPOINT_NAME }}
+      BUNDLE_VAR_state_volume_full_name: ${{ vars.DATAARCHY_STATE_VOLUME_FULL_NAME }}
 
     steps:
       - uses: actions/checkout@v4
@@ -43,10 +43,10 @@ jobs:
           required=(
             DATABRICKS_HOST
             DATABRICKS_CLIENT_ID
-            DATABRICKS_BUNDLE_VAR_warehouse_id
-            DATABRICKS_BUNDLE_VAR_genie_space_id
-            DATABRICKS_BUNDLE_VAR_model_endpoint_name
-            DATABRICKS_BUNDLE_VAR_state_volume_full_name
+            BUNDLE_VAR_warehouse_id
+            BUNDLE_VAR_genie_space_id
+            BUNDLE_VAR_model_endpoint_name
+            BUNDLE_VAR_state_volume_full_name
           )
           for name in "${required[@]}"; do
             if [ -z "${!name:-}" ]; then
@@ -64,6 +64,21 @@ jobs:
       - name: Start or restart Dataarchy
         run: databricks bundle run dataarchy --target "${{ inputs.target }}"
 
+      - name: Wait for app to report RUNNING
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            state="$(databricks apps get dataarchy --output json | jq -r '.app_status.state // empty')"
+            echo "App state attempt $attempt: ${state:-unknown}"
+            if [ "$state" = "RUNNING" ]; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Dataarchy did not reach RUNNING state." >&2
+          exit 1
+
       - name: Smoke test deployed app
         shell: bash
         run: |
@@ -74,18 +89,30 @@ jobs:
             echo "Databricks did not return an app URL." >&2
             exit 1
           fi
-          for attempt in $(seq 1 30); do
-            status="$(curl -sS -o /tmp/dataarchy-health.json -w '%{http_code}' \
-              -H "Authorization: Bearer $TOKEN" \
-              "$APP_URL/api/system" || true)"
-            if [ "$status" = "200" ]; then
-              echo "Dataarchy smoke test passed at $APP_URL"
-              cat /tmp/dataarchy-health.json
-              exit 0
-            fi
-            echo "Health attempt $attempt returned HTTP $status"
-            sleep 10
-          done
-          echo "Dataarchy failed to become healthy after deployment." >&2
-          cat /tmp/dataarchy-health.json 2>/dev/null || true
-          exit 1
+
+          system_status="$(curl -sS -o /tmp/dataarchy-system.json -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            "$APP_URL/api/system" || true)"
+          if [ "$system_status" != "200" ]; then
+            echo "Dataarchy /api/system returned HTTP $system_status" >&2
+            cat /tmp/dataarchy-system.json 2>/dev/null || true
+            exit 1
+          fi
+
+          install_status="$(curl -sS -o /tmp/dataarchy-install.json -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            "$APP_URL/api/install" || true)"
+          if [ "$install_status" != "200" ]; then
+            echo "Dataarchy /api/install returned HTTP $install_status" >&2
+            cat /tmp/dataarchy-install.json 2>/dev/null || true
+            exit 1
+          fi
+
+          ready="$(jq -r '.ready' /tmp/dataarchy-install.json)"
+          cat /tmp/dataarchy-install.json
+          if [ "$ready" != "true" ]; then
+            echo "Dataarchy is running, but install readiness checks are incomplete." >&2
+            exit 1
+          fi
+
+          echo "Dataarchy deployment and readiness checks passed at $APP_URL"
