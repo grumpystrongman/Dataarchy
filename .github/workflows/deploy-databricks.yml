@@ -1,0 +1,91 @@
+name: Deploy Dataarchy to Databricks Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Bundle target to deploy
+        required: true
+        default: prod
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    env:
+      DATABRICKS_AUTH_TYPE: github-oidc
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_BUNDLE_VAR_warehouse_id: ${{ vars.DATAARCHY_WAREHOUSE_ID }}
+      DATABRICKS_BUNDLE_VAR_genie_space_id: ${{ vars.DATAARCHY_GENIE_SPACE_ID }}
+      DATABRICKS_BUNDLE_VAR_model_endpoint_name: ${{ vars.DATAARCHY_MODEL_ENDPOINT_NAME }}
+      DATABRICKS_BUNDLE_VAR_state_volume_full_name: ${{ vars.DATAARCHY_STATE_VOLUME_FULL_NAME }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Verify deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            DATABRICKS_HOST
+            DATABRICKS_CLIENT_ID
+            DATABRICKS_BUNDLE_VAR_warehouse_id
+            DATABRICKS_BUNDLE_VAR_genie_space_id
+            DATABRICKS_BUNDLE_VAR_model_endpoint_name
+            DATABRICKS_BUNDLE_VAR_state_volume_full_name
+          )
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required GitHub environment variable: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Validate bundle
+        run: databricks bundle validate --target "${{ inputs.target }}"
+
+      - name: Deploy bundle
+        run: databricks bundle deploy --target "${{ inputs.target }}"
+
+      - name: Start or restart Dataarchy
+        run: databricks bundle run dataarchy --target "${{ inputs.target }}"
+
+      - name: Smoke test deployed app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_URL="$(databricks apps get dataarchy --output json | jq -r '.url')"
+          TOKEN="$(databricks auth token | jq -r '.access_token')"
+          if [ -z "$APP_URL" ] || [ "$APP_URL" = "null" ]; then
+            echo "Databricks did not return an app URL." >&2
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            status="$(curl -sS -o /tmp/dataarchy-health.json -w '%{http_code}' \
+              -H "Authorization: Bearer $TOKEN" \
+              "$APP_URL/api/system" || true)"
+            if [ "$status" = "200" ]; then
+              echo "Dataarchy smoke test passed at $APP_URL"
+              cat /tmp/dataarchy-health.json
+              exit 0
+            fi
+            echo "Health attempt $attempt returned HTTP $status"
+            sleep 10
+          done
+          echo "Dataarchy failed to become healthy after deployment." >&2
+          cat /tmp/dataarchy-health.json 2>/dev/null || true
+          exit 1
