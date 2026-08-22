@@ -15,6 +15,8 @@ env:
     valueFrom: genie-space
   - name: DATABRICKS_MODEL_ENDPOINT
     valueFrom: serving-endpoint
+  - name: DATAARCHY_STATE_VOLUME
+    valueFrom: state-volume
   - name: DATABRICKS_CATALOG
     value: main
   - name: DATABRICKS_SCHEMA

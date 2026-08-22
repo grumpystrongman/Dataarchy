@@ -58,10 +58,7 @@ async function getAccessToken(): Promise<string> {
       Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      scope: "all-apis",
-    }).toString(),
+    body: new URLSearchParams({ grant_type: "client_credentials", scope: "all-apis" }).toString(),
     cache: "no-store",
   });
 
@@ -79,17 +76,26 @@ async function getAccessToken(): Promise<string> {
   return oauthCache.accessToken;
 }
 
-async function dbx<T>(path: string, init?: RequestInit): Promise<T> {
+export async function databricksRaw(path: string, init?: RequestInit): Promise<Response> {
   if (!host) throw new Error("DATABRICKS_HOST is not configured.");
   const accessToken = await getAccessToken();
-  const response = await fetch(`${host}${path}`, {
+  return fetch(`${host}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
     cache: "no-store",
+  });
+}
+
+async function dbx<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await databricksRaw(path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
   });
 
   const body = await response.json().catch(() => ({}));
@@ -144,7 +150,6 @@ export async function askGenie(content: string) {
   let latest = started?.message || started;
   const terminal = new Set(["COMPLETED", "FAILED", "CANCELLED", "QUERY_RESULT_EXPIRED"]);
 
-  // Keep the request bounded while still returning useful progressive Genie state.
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const status = String(latest?.status || "").toUpperCase();
     if (terminal.has(status)) break;

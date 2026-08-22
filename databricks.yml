@@ -8,6 +8,8 @@ variables:
     description: Genie Agent space used by Dataarchy
   model_endpoint_name:
     description: Model serving endpoint used by the Dataarchy operator planner
+  state_volume_full_name:
+    description: Unity Catalog volume used for durable Dataarchy mission memory, in catalog.schema.volume form
 
 resources:
   apps:
@@ -28,6 +30,12 @@ resources:
           serving_endpoint:
             name: ${var.model_endpoint_name}
             permission: CAN_QUERY
+        - name: state-volume
+          description: Governed durable mission and audit storage
+          uc_securable:
+            securable_full_name: ${var.state_volume_full_name}
+            securable_type: VOLUME
+            permission: WRITE_VOLUME
 
 targets:
   dev:
