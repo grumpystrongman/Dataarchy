@@ -1,0 +1,23 @@
+command:
+  - npm
+  - run
+  - start
+  - --
+  - -H
+  - 0.0.0.0
+  - -p
+  - ${DATABRICKS_APP_PORT}
+
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: DATABRICKS_GENIE_SPACE_ID
+    valueFrom: genie-space
+  - name: DATABRICKS_MODEL_ENDPOINT
+    valueFrom: serving-endpoint
+  - name: DATABRICKS_CATALOG
+    value: main
+  - name: DATABRICKS_SCHEMA
+    value: default
+  - name: DATAARCHY_ALLOW_SQL_MUTATIONS
+    value: "false"
