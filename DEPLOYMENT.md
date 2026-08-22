@@ -104,9 +104,24 @@ Databricks pulls the repository root, detects `package.json`, installs Node depe
 
 ### Step 5 — Verify the app
 
-Open Dataarchy after deployment.
+Open Dataarchy after deployment, then visit:
 
-Verify:
+```text
+https://<your-dataarchy-app>/api/install
+```
+
+A correctly wired Databricks deployment returns:
+
+```json
+{
+  "ready": true,
+  "deploymentModel": "databricks-app-git-native"
+}
+```
+
+The readiness endpoint checks only configuration state. It never returns OAuth secrets, access tokens, or personal credentials.
+
+Then verify the operator workflow:
 
 1. The top-level system indicator reports Databricks connectivity rather than DEMO mode.
 2. ASK can reach the bound Genie Agent.
@@ -151,13 +166,13 @@ git_source:
 
 It also declares the same four governed resources used by the UI installation path.
 
-Set the resource variables:
+Set the resource variables using the current Declarative Automation Bundles environment-variable prefix:
 
 ```bash
-export DATABRICKS_BUNDLE_VAR_warehouse_id="<warehouse-id>"
-export DATABRICKS_BUNDLE_VAR_genie_space_id="<genie-space-id>"
-export DATABRICKS_BUNDLE_VAR_model_endpoint_name="<serving-endpoint-name>"
-export DATABRICKS_BUNDLE_VAR_state_volume_full_name="main.dataarchy.state"
+export BUNDLE_VAR_warehouse_id="<warehouse-id>"
+export BUNDLE_VAR_genie_space_id="<genie-space-id>"
+export BUNDLE_VAR_model_endpoint_name="<serving-endpoint-name>"
+export BUNDLE_VAR_state_volume_full_name="main.dataarchy.state"
 ```
 
 Then deploy:
@@ -167,6 +182,8 @@ databricks bundle validate --target prod
 databricks bundle deploy --target prod
 databricks bundle run dataarchy --target prod
 ```
+
+The `prod` target is intentionally portable rather than using strict bundle production mode, because strict production mode requires workspace-specific host/root-path settings that should not be committed into a public reusable repo.
 
 This path uses your authenticated Databricks CLI session for deployment administration. The deployed Dataarchy application itself still uses its Databricks-managed app identity rather than a PAT embedded in source code.
 
@@ -193,7 +210,7 @@ Configure these GitHub Environment variables:
 
 `DATABRICKS_CLIENT_ID` is an identifier, not a secret. GitHub exchanges its OIDC identity with Databricks according to the workload-federation policy. No Databricks client secret needs to be stored in GitHub.
 
-The workflow performs:
+The workflow maps those GitHub variables to the required `BUNDLE_VAR_*` names, then performs:
 
 ```text
 checkout
@@ -206,8 +223,14 @@ bundle deploy
   ↓
 bundle run dataarchy
   ↓
-authenticated /api/system smoke test
+wait for RUNNING
+  ↓
+/api/system smoke test
+  ↓
+/api/install readiness check
 ```
+
+The workflow fails if Dataarchy starts but its required Databricks resources are not wired correctly.
 
 ## Local development only
 
@@ -250,6 +273,21 @@ DATABRICKS_APP_PORT
 ```
 
 Do not manually insert those values into the repository.
+
+### `/api/install` returns `ready: false`
+
+Review the `missing` array in the response. It identifies which managed-runtime or resource binding is absent without revealing credentials.
+
+Expected checks are:
+
+```text
+databricksAppRuntime
+managedAppIdentity
+sqlWarehouse
+genieAgent
+modelServing
+stateVolume
+```
 
 ### ASK cannot use Genie
 
