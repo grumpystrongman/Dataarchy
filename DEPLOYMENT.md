@@ -1,6 +1,6 @@
 # Deploy Dataarchy in Databricks
 
-Dataarchy v0.5 is designed to be installed directly from GitHub as a first-class Databricks App with **no hard-coded tokens, passwords, or GitHub PATs** for the normal deployment path.
+Dataarchy v0.6 is designed to be installed directly from GitHub as a first-class Databricks App with **no hard-coded tokens, passwords, or GitHub PATs** for the normal deployment path.
 
 The recommended model is:
 
@@ -16,6 +16,8 @@ Bound Databricks resources
   ├─ SQL Warehouse
   ├─ Model Serving endpoint
   └─ Unity Catalog state volume
+        ├─ Mission Memory
+        └─ Custom Theme OS packs
 ```
 
 Genie is an intelligence resource used by Dataarchy after the app is running. Genie is **not** the deployment mechanism.
@@ -29,7 +31,7 @@ You need four existing workspace resources:
 1. A SQL Warehouse that Dataarchy may `CAN_USE`.
 2. A Genie Agent that Dataarchy may `CAN_RUN`.
 3. A Model Serving endpoint that Dataarchy may `CAN_QUERY`.
-4. A Unity Catalog Volume that Dataarchy may `WRITE_VOLUME` for Mission Memory.
+4. A Unity Catalog Volume that Dataarchy may `WRITE_VOLUME` for Mission Memory and custom themes.
 
 Suggested volume:
 
@@ -72,7 +74,7 @@ Add the following resources in **App resources**. The resource keys must match e
 
 Databricks provisions a dedicated service principal for the app and grants the configured app-resource permissions to that identity.
 
-Do not paste a Databricks PAT or OAuth secret into Dataarchy. Databricks Apps automatically injects the app service principal's `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`, plus the workspace host, into the running app.
+Do not paste a Databricks PAT or OAuth secret into Dataarchy. Databricks Apps automatically injects the app service principal's OAuth credentials plus the workspace host into the running app.
 
 ### Step 3 — Grant governed data access where required
 
@@ -115,11 +117,14 @@ A correctly wired Databricks deployment returns:
 ```json
 {
   "ready": true,
-  "deploymentModel": "databricks-app-git-native"
+  "deploymentModel": "databricks-app-git-native",
+  "themeOS": {
+    "builtInThemes": 11
+  }
 }
 ```
 
-The readiness endpoint checks only configuration state. It never returns OAuth secrets, access tokens, or personal credentials.
+The readiness endpoint checks configuration state only. It never returns OAuth secrets, access tokens, or personal credentials.
 
 Then verify the operator workflow:
 
@@ -129,13 +134,24 @@ Then verify the operator workflow:
 4. FIX can read Databricks Jobs context.
 5. BUILD and WATCH generate staged work rather than silently changing production.
 6. `Cmd/Ctrl + Shift + M` opens Mission Memory.
-7. Missions persist after an app restart, confirming the state volume is working.
+7. Missions persist after an app restart.
+8. `Cmd/Ctrl + Shift + T` opens Theme OS.
+9. Apply several built-in themes and verify the shell changes immediately.
+10. Use Theme Forge to generate a theme, install it, restart the app, and confirm the custom theme remains in the catalog.
 
 Mission files are stored under:
 
 ```text
 /Volumes/<catalog>/<schema>/<volume>/dataarchy/missions/<mission-uuid>.json
 ```
+
+Custom themes are stored under:
+
+```text
+/Volumes/<catalog>/<schema>/<volume>/dataarchy/themes/<theme-id>.json
+```
+
+Theme Forge uses the configured Model Serving endpoint when available. If model generation fails or is unavailable, Dataarchy deliberately falls back to a deterministic theme generator so the feature remains usable.
 
 ## Updating Dataarchy from GitHub
 
@@ -148,23 +164,9 @@ For this public repository, redeployment does not require a GitHub credential:
 
 Databricks reads the current commit from GitHub each time it deploys the branch.
 
-### About automatic deployments
-
-Databricks currently supports automatic Git deployment from GitHub as a beta feature, but the GitHub auto-deploy path requires a private repository. Because Dataarchy is currently public, use manual **Deploy from Git** or the GitHub OIDC workflow below for controlled automation.
-
 ## Declarative Automation Bundle deployment
 
-`databricks.yml` defines the Dataarchy app with the GitHub repository itself as the deployment source:
-
-```yaml
-git_repository:
-  provider: gitHub
-  url: https://github.com/grumpystrongman/Dataarchy
-git_source:
-  branch: main
-```
-
-It also declares the same four governed resources used by the UI installation path.
+`databricks.yml` defines the Dataarchy app with the GitHub repository itself as the deployment source and the same four governed resources used by the UI installation path.
 
 Set the resource variables using the current Declarative Automation Bundles environment-variable prefix:
 
@@ -183,19 +185,11 @@ databricks bundle deploy --target prod
 databricks bundle run dataarchy --target prod
 ```
 
-The `prod` target is intentionally portable rather than using strict bundle production mode, because strict production mode requires workspace-specific host/root-path settings that should not be committed into a public reusable repo.
-
 This path uses your authenticated Databricks CLI session for deployment administration. The deployed Dataarchy application itself still uses its Databricks-managed app identity rather than a PAT embedded in source code.
 
 ## GitHub OIDC production deployment
 
-The repository also includes:
-
-```text
-.github/workflows/deploy-databricks.yml
-```
-
-This workflow is manually triggered and uses GitHub workload identity federation instead of a stored Databricks client secret.
+The repository also includes `.github/workflows/deploy-databricks.yml`. It is manually triggered and uses GitHub workload identity federation instead of a stored Databricks client secret.
 
 Configure these GitHub Environment variables:
 
@@ -208,29 +202,7 @@ Configure these GitHub Environment variables:
 | `DATAARCHY_MODEL_ENDPOINT_NAME` | Model Serving endpoint name |
 | `DATAARCHY_STATE_VOLUME_FULL_NAME` | UC volume in `catalog.schema.volume` form |
 
-`DATABRICKS_CLIENT_ID` is an identifier, not a secret. GitHub exchanges its OIDC identity with Databricks according to the workload-federation policy. No Databricks client secret needs to be stored in GitHub.
-
-The workflow maps those GitHub variables to the required `BUNDLE_VAR_*` names, then performs:
-
-```text
-checkout
-  ↓
-GitHub OIDC → Databricks
-  ↓
-bundle validate
-  ↓
-bundle deploy
-  ↓
-bundle run dataarchy
-  ↓
-wait for RUNNING
-  ↓
-/api/system smoke test
-  ↓
-/api/install readiness check
-```
-
-The workflow fails if Dataarchy starts but its required Databricks resources are not wired correctly.
+The workflow maps those variables to `BUNDLE_VAR_*`, validates the bundle, deploys, starts/restarts Dataarchy, waits for the app to become healthy, then verifies `/api/system` and `/api/install`.
 
 ## Local development only
 
@@ -244,41 +216,17 @@ npm run dev
 
 Use either a local PAT or OAuth M2M credentials in `.env.local`. Never commit them.
 
-If `DATAARCHY_STATE_VOLUME` is omitted locally, Mission Memory falls back to in-process storage.
+If `DATAARCHY_STATE_VOLUME` is omitted locally, Mission Memory and custom Theme OS packs fall back to in-process storage.
 
 ## Troubleshooting
 
-### Databricks cannot pull GitHub
-
-Confirm the repository URL is exactly:
-
-```text
-https://github.com/grumpystrongman/Dataarchy
-```
-
-and the branch is `main`.
-
-Because the repo is public, a Git credential should not be necessary. In workspaces with Private Link, restricted egress, or network policies, GitHub may need to be allowed by the workspace network configuration.
-
 ### Dataarchy starts in DEMO mode
 
-Check the Databricks App runtime and app logs. A normal Databricks Apps runtime automatically provides:
-
-```text
-DATABRICKS_HOST
-DATABRICKS_APP_NAME
-DATABRICKS_CLIENT_ID
-DATABRICKS_CLIENT_SECRET
-DATABRICKS_APP_PORT
-```
-
-Do not manually insert those values into the repository.
+Check the Databricks App runtime and app logs. Do not manually insert Databricks runtime credentials into the repository.
 
 ### `/api/install` returns `ready: false`
 
-Review the `missing` array in the response. It identifies which managed-runtime or resource binding is absent without revealing credentials.
-
-Expected checks are:
+Review the `missing` array. Expected checks include:
 
 ```text
 databricksAppRuntime
@@ -287,34 +235,40 @@ sqlWarehouse
 genieAgent
 modelServing
 stateVolume
+themeStorage
 ```
 
 ### ASK cannot use Genie
 
-Confirm:
-
-- the app has a Genie Agent resource with key `genie-space`
-- the resource has `CAN_RUN`
-- the Genie Agent itself is configured and working in the workspace
+Confirm the app has the `genie-space` resource with `CAN_RUN` and the Genie Agent itself is configured and working.
 
 ### SQL or EXPLORE cannot see data
 
-`CAN_USE` on a SQL Warehouse gives compute access, not blanket data access. Grant the Dataarchy app service principal the required Unity Catalog permissions for the catalogs, schemas, and tables it should access.
+`CAN_USE` on a SQL Warehouse gives compute access, not blanket data access. Grant the app service principal the Unity Catalog permissions it actually needs.
 
 ### Mission Memory is not durable
 
-Confirm the app resource key is `state-volume`, the app has `WRITE_VOLUME`, and `app.yaml` resolves it into `DATAARCHY_STATE_VOLUME`.
+Confirm `state-volume` exists, has `WRITE_VOLUME`, and resolves into `DATAARCHY_STATE_VOLUME`.
+
+### Custom themes disappear after restart
+
+The same `state-volume` resource backs durable Theme OS storage. Verify `/api/install` reports `themeStorage: true` and that the app can write under `/Volumes/.../dataarchy/themes`.
+
+### Theme Forge does not use AI
+
+Theme Forge requires the `serving-endpoint` resource to use Databricks Model Serving. If it is unavailable, Theme Forge intentionally uses the deterministic fallback and remains functional.
 
 ## Security posture
 
 The production defaults are intentional:
 
-- no GitHub PAT for this public repo
-- no Databricks PAT in application code
-- app service-principal identity managed by Databricks
-- least-privilege app resources
-- durable audit state in Unity Catalog
-- production SQL mutations disabled by default
-- BUILD/FIX/WATCH staged for operator review
+- no GitHub PAT for this public repo;
+- no Databricks PAT in application code;
+- app service-principal identity managed by Databricks;
+- least-privilege app resources;
+- durable audit and custom-theme state in Unity Catalog;
+- generated themes are manifest tokens only—no arbitrary CSS, scripts, URLs, fonts, or assets;
+- production SQL mutations disabled by default;
+- BUILD/FIX/WATCH staged for operator review.
 
 `DATAARCHY_ALLOW_SQL_MUTATIONS=false` should remain the default until resource-specific promotion adapters provide explicit validation, authorization, execution, verification, and audit semantics.
