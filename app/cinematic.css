@@ -1,0 +1,442 @@
+/*
+ * Dataarchy Cinematic System Layer
+ *
+ * This file deliberately sits after globals.css. It preserves the existing
+ * interaction model while giving the shell a believable near-future command
+ * environment: dark glass, spatial depth, restrained emissive color, live
+ * system telemetry, and motion that communicates state.
+ */
+
+:root{
+  --cine-ink:#050708;
+  --cine-panel:rgba(9,14,16,.86);
+  --cine-panel-strong:rgba(8,12,14,.96);
+  --cine-line:rgba(146,211,221,.16);
+  --cine-line-hot:rgba(142,231,242,.56);
+  --cine-cyan:#7fe7f2;
+  --cine-cyan-hot:#b7fbff;
+  --cine-amber:#efad61;
+  --cine-red:#ff7068;
+  --cine-green:#9cdda8;
+  --cine-blue:#7bb8ff;
+  --cine-grid:rgba(144,211,219,.035);
+  --cine-glow:0 0 22px rgba(76,202,217,.12),0 24px 70px rgba(0,0,0,.56);
+  --cine-glow-hot:0 0 0 1px rgba(127,231,242,.16),0 0 32px rgba(67,197,211,.13),0 28px 70px rgba(0,0,0,.62);
+}
+
+html,body{background:#030506}
+body{overflow:hidden}
+
+.os{
+  --accent:var(--cine-cyan);
+  --accent-2:var(--cine-cyan-hot);
+  --line:var(--cine-line);
+  --line-soft:rgba(143,205,214,.09);
+  --panel:#091012;
+  --panel-2:#0c1518;
+  --text:#edf8f8;
+  --muted:#8ba0a4;
+  --dim:#586b70;
+  --good:var(--cine-green);
+  --warn:var(--cine-amber);
+  --bad:var(--cine-red);
+  --info:var(--cine-blue);
+  isolation:isolate;
+  background:
+    radial-gradient(ellipse at 73% 12%,rgba(38,175,194,.095),transparent 30%),
+    radial-gradient(ellipse at 18% 88%,rgba(239,173,97,.055),transparent 32%),
+    linear-gradient(145deg,#040708 0%,#071012 47%,#040607 100%);
+}
+
+.os.theme-oxide{
+  --accent:#efad61;
+  --accent-2:#ffd39e;
+  --cine-line-hot:rgba(239,173,97,.52);
+  background:
+    radial-gradient(ellipse at 72% 10%,rgba(239,173,97,.09),transparent 28%),
+    radial-gradient(ellipse at 16% 82%,rgba(96,188,205,.055),transparent 34%),
+    linear-gradient(145deg,#070706,#100d09 48%,#050606 100%);
+}
+
+.os.theme-mono{
+  --accent:#d8e5e6;
+  --accent-2:#fff;
+  --cine-line-hot:rgba(225,239,240,.4);
+  filter:saturate(.28);
+}
+
+/* environmental depth: a technical grid, horizon glow, and restrained scan */
+.os::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(var(--cine-grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--cine-grid) 1px,transparent 1px),
+    linear-gradient(90deg,transparent 49.85%,rgba(139,223,234,.035) 50%,transparent 50.15%);
+  background-size:42px 42px,42px 42px,100% 100%;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),rgba(0,0,0,.28) 72%,transparent);
+}
+
+.os::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:100;
+  pointer-events:none;
+  opacity:.22;
+  background:linear-gradient(to bottom,transparent 0,rgba(255,255,255,.014) 49%,transparent 50%);
+  background-size:100% 4px;
+  mix-blend-mode:screen;
+}
+
+.wallpaper-orb{filter:blur(120px);opacity:.08}
+.orb-a{background:#2eaec1;animation:ambientDrift 18s ease-in-out infinite alternate}
+.orb-b{background:#e0a05b;opacity:.045;animation:ambientDrift 22s ease-in-out infinite alternate-reverse}
+@keyframes ambientDrift{to{transform:translate3d(3vw,-2vh,0) scale(1.08)}}
+
+/* top command band */
+.topbar{
+  height:42px;
+  padding:0 15px;
+  background:linear-gradient(180deg,rgba(7,12,14,.96),rgba(5,9,10,.88));
+  border-bottom:1px solid rgba(127,231,242,.18);
+  box-shadow:0 8px 34px rgba(0,0,0,.22),inset 0 -1px rgba(255,255,255,.015);
+  backdrop-filter:blur(24px) saturate(1.25);
+}
+.topbar::before{
+  content:"SYSTEM / ANALYTICS / INTELLIGENCE";
+  position:absolute;
+  left:50%;
+  top:3px;
+  transform:translateX(-50%);
+  font:7px var(--mono);
+  letter-spacing:.23em;
+  color:rgba(127,231,242,.22);
+  pointer-events:none;
+}
+.brand{gap:10px}
+.brand-mark{
+  position:relative;
+  width:28px;height:24px;
+  clip-path:polygon(0 0,82% 0,100% 30%,100% 100%,18% 100%,0 70%);
+  border-radius:0;
+  background:linear-gradient(135deg,var(--accent-2),color-mix(in srgb,var(--accent) 72%,#22464a));
+  box-shadow:0 0 20px color-mix(in srgb,var(--accent) 26%,transparent);
+}
+.brand-mark::after{content:"";position:absolute;inset:3px;border:1px solid rgba(0,0,0,.3);clip-path:inherit}
+.brand strong{font-size:10px;letter-spacing:.21em;text-shadow:0 0 14px rgba(128,230,242,.18)}
+.top-center{margin-top:8px;text-transform:uppercase;letter-spacing:.11em}
+.top-center b{color:var(--accent-2);text-shadow:0 0 12px color-mix(in srgb,var(--accent) 24%,transparent)}
+.top-center i{color:#64777b}
+.top-right{margin-top:2px}
+.top-right button{
+  border-color:rgba(126,223,234,.17);
+  background:rgba(14,24,27,.7);
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+  border-radius:0;
+}
+.connection{font-size:9px;letter-spacing:.11em;color:#91a6aa}
+.status-dot{box-shadow:0 0 6px currentColor,0 0 16px currentColor;animation:statusBreath 2.8s ease-in-out infinite}
+@keyframes statusBreath{50%{opacity:.55;transform:scale(.82)}}
+
+/* workspace selector as a system rail, not a sidebar */
+.workspace-rail{top:53px;left:11px;bottom:38px;width:74px;gap:9px}
+.workspace-rail::before{
+  content:"WORKSPACES";
+  writing-mode:vertical-rl;
+  transform:rotate(180deg);
+  position:absolute;
+  left:-8px;top:10px;
+  font:7px var(--mono);
+  letter-spacing:.24em;
+  color:rgba(127,231,242,.2);
+}
+.workspace-rail button{
+  height:58px;
+  position:relative;
+  border-radius:0;
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));
+  transition:transform .18s ease,background .18s ease,color .18s ease,filter .18s ease;
+}
+.workspace-rail button::after{
+  content:"";
+  position:absolute;
+  right:6px;top:7px;width:13px;height:1px;
+  background:rgba(127,231,242,.15);
+}
+.workspace-rail button:hover{transform:translateX(2px);background:rgba(15,27,30,.72)}
+.workspace-rail button.active{
+  border-color:transparent;
+  background:linear-gradient(135deg,rgba(17,34,38,.94),rgba(7,15,17,.88));
+  box-shadow:inset 2px 0 var(--accent),0 0 20px rgba(67,194,209,.07);
+}
+.workspace-rail button.active::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.workspace-rail button span{font-size:15px;font-weight:700}
+
+.desktop{left:94px;right:10px;top:52px;bottom:38px;perspective:1400px}
+.desktop::after{
+  content:"DATA PLANE // AUTHORIZED SESSION";
+  position:absolute;
+  z-index:50;
+  right:13px;bottom:10px;
+  pointer-events:none;
+  font:7px var(--mono);
+  letter-spacing:.19em;
+  color:rgba(127,231,242,.17);
+}
+.grid{gap:9px}
+
+/* panes become cinematic instruments */
+.window{
+  position:relative;
+  border:1px solid rgba(119,192,202,.18);
+  border-radius:2px;
+  background:
+    linear-gradient(150deg,rgba(14,24,27,.91),rgba(6,11,13,.94) 60%),
+    var(--cine-panel);
+  box-shadow:var(--cine-glow);
+  backdrop-filter:blur(20px) saturate(1.15);
+  transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease;
+}
+.window::before,
+.window::after{
+  content:"";
+  position:absolute;
+  z-index:4;
+  pointer-events:none;
+  width:21px;height:21px;
+  opacity:.55;
+}
+.window::before{left:-1px;top:-1px;border-left:2px solid var(--accent);border-top:2px solid var(--accent)}
+.window::after{right:-1px;bottom:-1px;border-right:1px solid rgba(127,231,242,.5);border-bottom:1px solid rgba(127,231,242,.5)}
+.window:hover{border-color:rgba(125,223,234,.31);box-shadow:var(--cine-glow-hot)}
+.window-titlebar{
+  height:34px;
+  padding:0 11px;
+  background:linear-gradient(90deg,rgba(18,31,34,.92),rgba(8,14,16,.76));
+  border-bottom:1px solid rgba(124,209,220,.13);
+  position:relative;
+  overflow:hidden;
+}
+.window-titlebar::after{
+  content:"";
+  position:absolute;
+  left:0;bottom:0;width:33%;height:1px;
+  background:linear-gradient(90deg,var(--accent),transparent);
+  box-shadow:0 0 8px color-mix(in srgb,var(--accent) 50%,transparent);
+  opacity:.72;
+}
+.window-title{gap:8px;letter-spacing:.12em}
+.window-title svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 42%,transparent))}
+.window-title em{
+  border-radius:1px;
+  letter-spacing:.12em;
+  background:rgba(127,231,242,.045);
+  box-shadow:inset 0 0 10px rgba(127,231,242,.025);
+}
+.window-actions>span{width:5px;height:5px;border-color:rgba(130,190,198,.31)}
+.window-actions>span:first-of-type{background:rgba(127,231,242,.45);border-color:transparent;box-shadow:0 0 8px rgba(127,231,242,.38)}
+.window-body{height:calc(100% - 34px)}
+.window-body::-webkit-scrollbar-thumb{background:linear-gradient(var(--accent),rgba(41,75,81,.4));border-radius:0}
+
+/* data should feel illuminated, not decorated */
+.signal-list button,.job-table button,.dimension-list>div,.trace-row,.file-row,.policy-row{
+  transition:background .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.signal-list button:hover,.job-table button:hover,.file-row:hover,.policy-row:hover{
+  background:linear-gradient(90deg,rgba(127,231,242,.055),transparent 72%);
+  box-shadow:inset 2px 0 rgba(127,231,242,.52);
+}
+.signal-list button>b,.health-number,.metric-big strong{text-shadow:0 0 20px color-mix(in srgb,var(--accent) 16%,transparent)}
+.mini-bars span{
+  border-radius:0;
+  background:linear-gradient(to top,color-mix(in srgb,var(--accent) 45%,#193136),var(--accent));
+  box-shadow:0 0 6px color-mix(in srgb,var(--accent) 15%,transparent);
+}
+.health-number{position:relative}
+.health-number::after{content:"NOMINAL";position:absolute;left:4px;bottom:-7px;font:7px var(--mono);letter-spacing:.18em;color:rgba(127,231,242,.32)}
+.terminal-action{
+  border-radius:1px;
+  border-color:rgba(122,207,218,.19);
+  background:linear-gradient(90deg,rgba(7,13,15,.96),rgba(12,24,27,.78));
+  box-shadow:inset 2px 0 rgba(127,231,242,.34);
+}
+.terminal-action:hover{box-shadow:inset 2px 0 var(--accent),0 0 18px rgba(127,231,242,.08)}
+
+/* AI daemon becomes the visible intelligence core */
+.daemon-window{overflow:visible}
+.daemon-window .window-body{overflow:hidden}
+.daemon-window .window-body::before{
+  content:"";
+  position:absolute;
+  width:210px;height:210px;
+  right:-70px;top:-75px;
+  border-radius:50%;
+  border:1px solid rgba(127,231,242,.09);
+  background:
+    repeating-radial-gradient(circle,transparent 0 18px,rgba(127,231,242,.03) 19px 20px),
+    conic-gradient(from 20deg,transparent,rgba(127,231,242,.055),transparent 33%,rgba(239,173,97,.04),transparent 66%);
+  animation:coreRadar 18s linear infinite;
+  pointer-events:none;
+}
+@keyframes coreRadar{to{transform:rotate(360deg)}}
+.daemon-mark{
+  position:relative;
+  width:54px;height:54px;
+  border-radius:50%;
+  border:1px solid rgba(127,231,242,.42);
+  background:radial-gradient(circle,rgba(183,251,255,.23) 0 7%,rgba(76,197,212,.12) 8% 26%,rgba(10,24,28,.9) 27% 54%,rgba(127,231,242,.12) 55% 57%,transparent 58%);
+  box-shadow:0 0 12px rgba(127,231,242,.22),inset 0 0 20px rgba(127,231,242,.09);
+  animation:corePulse 3.2s ease-in-out infinite;
+}
+.daemon-mark::before,.daemon-mark::after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(127,231,242,.18)}
+.daemon-mark::before{inset:-7px;border-style:dashed;animation:coreRadar 9s linear infinite}
+.daemon-mark::after{inset:8px;border-color:rgba(239,173,97,.26)}
+@keyframes corePulse{50%{box-shadow:0 0 25px rgba(127,231,242,.31),inset 0 0 26px rgba(127,231,242,.14);transform:scale(1.025)}}
+.daemon-mark svg{width:22px;height:22px;filter:drop-shadow(0 0 8px rgba(127,231,242,.65))}
+.daemon-window h2{letter-spacing:.02em}
+.daemon-window h2::after{content:" // AI ONLINE";font:7px var(--mono);letter-spacing:.16em;color:rgba(127,231,242,.38);margin-left:8px}
+.daemon-log{position:relative}
+.daemon-log::before{content:"LIVE TRACE";position:absolute;right:0;top:-10px;font:7px var(--mono);letter-spacing:.15em;color:rgba(127,231,242,.24)}
+
+/* agent / command surface */
+.agent-window{box-shadow:0 0 0 1px rgba(127,231,242,.035),0 0 52px rgba(31,149,164,.06),0 28px 70px rgba(0,0,0,.56)}
+.mode-strip{
+  height:43px;
+  background:linear-gradient(90deg,rgba(7,13,15,.86),rgba(12,23,26,.5));
+}
+.mode-strip button{border-radius:1px;letter-spacing:.1em;position:relative}
+.mode-strip button.active{
+  background:linear-gradient(180deg,rgba(127,231,242,.105),rgba(127,231,242,.035));
+  border-color:rgba(127,231,242,.23);
+  color:var(--accent-2);
+  box-shadow:inset 0 -1px var(--accent),0 0 14px rgba(127,231,242,.05);
+}
+.system-line>span{
+  clip-path:polygon(0 0,78% 0,100% 22%,100% 100%,22% 100%,0 78%);
+  border-radius:0;
+  background:linear-gradient(135deg,var(--accent-2),#3aa9b6);
+  box-shadow:0 0 16px rgba(127,231,242,.18);
+}
+.empty-state{position:relative}
+.empty-state::before{
+  content:"";
+  position:absolute;
+  width:180px;height:180px;
+  border:1px solid rgba(127,231,242,.06);
+  border-radius:50%;
+  background:repeating-radial-gradient(circle,transparent 0 23px,rgba(127,231,242,.025) 24px 25px);
+  animation:corePulse 5s ease-in-out infinite;
+  z-index:-1;
+}
+.empty-state svg{filter:drop-shadow(0 0 9px rgba(127,231,242,.25))}
+.thinking span{box-shadow:0 0 9px var(--accent)}
+.prompt{
+  height:54px;
+  border-radius:1px;
+  border-color:rgba(123,208,219,.21);
+  background:linear-gradient(90deg,rgba(5,10,12,.97),rgba(10,19,22,.94));
+  box-shadow:inset 2px 0 rgba(127,231,242,.28),0 0 24px rgba(0,0,0,.26);
+}
+.prompt:focus-within{
+  border-color:rgba(127,231,242,.45);
+  box-shadow:inset 2px 0 var(--accent),0 0 28px rgba(127,231,242,.08);
+}
+.prompt-prefix{text-shadow:0 0 12px var(--accent)}
+.prompt button{
+  border-radius:0;
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+  background:rgba(127,231,242,.07);
+  border-color:rgba(127,231,242,.26);
+}
+.prompt button:hover{background:rgba(127,231,242,.12);box-shadow:0 0 14px rgba(127,231,242,.08)}
+
+.trace-row i.running{animation:tracePulse 1.5s ease-in-out infinite;box-shadow:0 0 12px var(--accent)}
+@keyframes tracePulse{50%{transform:scale(1.7);opacity:.45}}
+.result-card{
+  border-color:rgba(127,231,242,.16)!important;
+  background:linear-gradient(145deg,rgba(11,22,25,.78),rgba(5,10,12,.82))!important;
+  box-shadow:inset 2px 0 rgba(127,231,242,.28),0 14px 28px rgba(0,0,0,.2);
+}
+.result-head em,.source-tag{letter-spacing:.1em}
+
+/* build workspace reads like a deployment bay */
+.builder-window{box-shadow:0 0 42px rgba(67,190,204,.055),0 24px 58px rgba(0,0,0,.48)}
+.step-pips i{box-shadow:0 0 0 1px rgba(127,231,242,.1)}
+.step-pips i.active{box-shadow:0 0 12px color-mix(in srgb,var(--accent) 34%,transparent)}
+.build-prompt textarea,.asset-search{
+  border-radius:1px!important;
+  background:rgba(4,9,10,.7)!important;
+  border-color:rgba(127,231,242,.16)!important;
+}
+.build-prompt textarea:focus{outline:none;border-color:rgba(127,231,242,.38)!important;box-shadow:inset 2px 0 rgba(127,231,242,.35)}
+.build-prompt button,.asset-search button,.policy-edit,.daemon-actions button,.next-actions button{
+  border-radius:1px!important;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+.build-contract>div{position:relative}
+.build-contract>div::before{content:"";position:absolute;left:0;top:0;width:16px;height:1px;background:var(--accent);opacity:.55}
+.file-row small{text-transform:uppercase;letter-spacing:.08em}
+
+/* governance feels secure, not administrative */
+.policy-window .window-body{background:linear-gradient(180deg,rgba(8,15,17,.28),rgba(5,10,11,.18))}
+.policy-row .good{filter:drop-shadow(0 0 5px rgba(156,221,168,.2))}
+.catalog-tree button:hover{background:linear-gradient(90deg,rgba(127,231,242,.055),transparent)}
+
+/* status band and launch overlays */
+.statusbar{
+  height:30px;
+  background:linear-gradient(180deg,rgba(5,9,10,.92),rgba(3,6,7,.98));
+  border-top:1px solid rgba(127,231,242,.14);
+  letter-spacing:.075em;
+  backdrop-filter:blur(20px);
+}
+.statusbar::before{content:"";position:absolute;left:0;top:-1px;width:19%;height:1px;background:linear-gradient(90deg,var(--accent),transparent);box-shadow:0 0 8px rgba(127,231,242,.3)}
+.overlay{
+  background:radial-gradient(circle at center,rgba(16,36,40,.28),rgba(2,4,5,.78));
+  backdrop-filter:blur(12px) saturate(.9);
+}
+.launcher,.hotkeys{
+  border-radius:2px!important;
+  border-color:rgba(127,231,242,.28)!important;
+  background:linear-gradient(145deg,rgba(10,20,23,.98),rgba(4,9,11,.99))!important;
+  box-shadow:0 0 0 1px rgba(127,231,242,.045),0 0 75px rgba(65,190,206,.11),0 35px 90px rgba(0,0,0,.72)!important;
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));
+}
+.launcher::before,.hotkeys::before{
+  content:"NEURAL COMMAND INTERFACE";
+  position:absolute;
+  right:27px;top:8px;
+  font:7px var(--mono);
+  letter-spacing:.19em;
+  color:rgba(127,231,242,.24);
+  pointer-events:none;
+}
+.launcher-list button:hover{background:linear-gradient(90deg,rgba(127,231,242,.08),transparent)!important;box-shadow:inset 2px 0 var(--accent)}
+.launcher-index{color:rgba(127,231,242,.38)!important}
+kbd{border-radius:1px!important;border-color:rgba(127,231,242,.2)!important;background:rgba(127,231,242,.04)!important}
+.toast{border-radius:1px!important;border-color:rgba(239,173,97,.3)!important;background:rgba(22,16,9,.94)!important;box-shadow:0 0 28px rgba(239,173,97,.08)!important}
+
+/* subtle entrance gives each workspace the feeling of a system coming online */
+.desktop>.grid{animation:workspaceAcquire .32s cubic-bezier(.2,.7,.2,1)}
+@keyframes workspaceAcquire{
+  from{opacity:0;transform:translateY(5px) scale(.996);filter:blur(2px)}
+  to{opacity:1;transform:none;filter:none}
+}
+.window{animation:paneAcquire .36s ease-out both}
+.window:nth-child(2){animation-delay:.035s}.window:nth-child(3){animation-delay:.07s}.window:nth-child(4){animation-delay:.105s}
+@keyframes paneAcquire{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+/* accessibility / real-work safeguards */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
+}
+
+@media(max-width:900px){
+  .os::after{display:none}
+  .topbar::before,.workspace-rail::before,.desktop::after{display:none}
+  .window{backdrop-filter:none}
+}
