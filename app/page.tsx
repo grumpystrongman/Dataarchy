@@ -1,5 +1,5 @@
-import DataarchyOS from "@/components/dataarchy-os";
+import DataarchyShell from "@/components/dataarchy-shell";
 
 export default function Home() {
-  return <DataarchyOS />;
+  return <DataarchyShell />;
 }
