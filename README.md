@@ -10,11 +10,12 @@ This is not a dashboard mockup. The repository contains a runnable Next.js appli
 - A global `Super/Cmd/Ctrl + Space` launcher
 - `Super/Cmd/Ctrl + 1..4` workspace switching and `Super/Cmd/Ctrl + K` keybinding help
 - ASK / EXPLORE / BUILD / FIX / WATCH intent modes
-- A Databricks adapter for Genie, Unity Catalog, Jobs API 2.2, and SQL Statement Execution
+- A Databricks adapter for Genie, Unity Catalog, Jobs API 2.2, SQL Statement Execution, and Model Serving
 - A rich demo mode that boots without credentials
 - Review-first production mutation philosophy for generated build/watch actions
 - Theme switching from the global launcher
 - Responsive desktop/mobile layouts
+- A governed SQL escape hatch that blocks mutating statements by default
 
 ## Run it
 
@@ -37,8 +38,10 @@ DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
 DATABRICKS_TOKEN=...
 DATABRICKS_WAREHOUSE_ID=...
 DATABRICKS_GENIE_SPACE_ID=...
+DATABRICKS_MODEL_ENDPOINT=databricks-gpt-5
 DATABRICKS_CATALOG=main
 DATABRICKS_SCHEMA=default
+DATAARCHY_ALLOW_SQL_MUTATIONS=false
 ```
 
 The current adapter uses:
@@ -48,6 +51,9 @@ The current adapter uses:
 - `GET /api/2.1/unity-catalog/tables/{full_name}`
 - `GET /api/2.2/jobs/runs/list`
 - `POST /api/2.0/sql/statements`
+- `POST /serving-endpoints/{name}/invocations`
+
+ASK prefers Genie when a Genie space is configured. BUILD/FIX/WATCH can use the configured Databricks Model Serving endpoint as Dataarchy's governed planning brain. EXPLORE resolves exact three-part table names through Unity Catalog. The shell falls back gracefully when optional capabilities are not configured.
 
 ## Product philosophy
 
@@ -77,11 +83,16 @@ Databricks Adapter
   ├─ Genie
   ├─ Unity Catalog
   ├─ Jobs 2.2
+  ├─ Model Serving / Foundation Models
   └─ SQL Statement Execution
           │
           ▼
 Databricks workspace + governed enterprise data
 ```
+
+## Governed SQL escape hatch
+
+`POST /api/sql` accepts `{ "statement": "SELECT ..." }` and executes through the configured SQL warehouse. Mutating SQL (`INSERT`, `UPDATE`, `DELETE`, `MERGE`, DDL, grants, maintenance commands, and similar operations) is denied unless `DATAARCHY_ALLOW_SQL_MUTATIONS=true` is explicitly configured.
 
 ## What comes next
 
